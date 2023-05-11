@@ -7,7 +7,6 @@ from scipy import ndimage
 from scipy.ndimage import zoom
 from torch.utils.data import Dataset
 from PIL import Image
-from utils import tran_label
 
 def random_rot_flip(image, label):
     k = np.random.randint(0, 4)

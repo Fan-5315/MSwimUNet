@@ -115,12 +115,16 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
         input = torch.from_numpy(image).unsqueeze(0).float().cuda()
         net.eval()
         with torch.no_grad():
-            outputs= net(input)[0]
+            outputs,outputs_mask,x_mask= net(input)
+            x_mask = x_mask.squeeze(0).cpu().detach().numpy()
             out = torch.argmax(torch.softmax(outputs, dim=1), dim=1).squeeze(0)
+            out1 = torch.argmax(torch.softmax(outputs_mask, dim=1), dim=1).squeeze(0)
             # out = torch.softmax(outputs, dim=1)
             # prediction = torch.argmax(out,dim=1).squeeze(0).cpu().detach().numpy()
             out_cal = out.cpu().detach().numpy()
-            prediction=out_cal
+            out1_cal = out1.cpu().detach().numpy()
+            prediction = out_cal
+            prediction1 = out1_cal
 
     else:
         input = torch.from_numpy(image).unsqueeze(0).unsqueeze(0).float().cuda()
@@ -139,16 +143,22 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
 
     if test_save_path is not None:
         image = np.transpose(image.astype(np.uint8), (1, 2, 0))
+        x_mask = np.transpose(x_mask.astype(np.uint8), (1, 2, 0))
         prediction = prediction.astype(np.uint8)
+        prediction1 = prediction1.astype(np.uint8)
         label = label.astype(np.uint8)
 
         image_path = test_save_path + '/' + case[:-4] + '_' + 'image' + '.png'
+        x_mask_path = test_save_path + '/' + case[:-4] + '_' + 'mask_image' + '.png'
         prediction_path = test_save_path + '/' + case[:-4] + '_' + 'pred' + '.png'
         label_path = test_save_path + '/' + case[:-4] + '_' + 'label' + '.png'
+        prediction1_path = test_save_path + '/' + case[:-4] + '_' + 'mask_pred' + '.png'
 
         cv2.imwrite(image_path,image)
+        cv2.imwrite(x_mask_path, x_mask)
         cv2.imwrite(prediction_path,prediction*50)
         cv2.imwrite(label_path,label*50)
+        cv2.imwrite(prediction1_path, prediction1 * 50)
     return metric_list
 
 def cal_val(image, label, net, classes):
@@ -169,23 +179,23 @@ def cal_val(image, label, net, classes):
 
     return metric_list
 
-def get_mask(array,mask_rate):
-
-    # 获取原始张量的形状信息
-    batch_size, channels, height, width = array.shape
-    # 将张量 x 变形成 (batch_size, channels, h*w) 的形状
-    x_reshaped = array.view(batch_size,channels, -1)
-
-    # 对于每个 (batch_size, channels) 的二维矩阵，生成一个掩码矩阵;mask_rate为1的概率
-    mask_2d = torch.zeros_like(x_reshaped).bernoulli_(1-mask_rate)
-
-    # 将掩码矩阵增加一个维度
-    mask_3d = mask_2d.unsqueeze(-1)
-
-    # 将掩码矩阵重塑回原始张量的形状，并转换为浮点数张量
-    mask = mask_3d.view(batch_size, channels, height, width).float()
-
-    return mask
+# def get_mask(array,mask_rate):
+#
+#     # 获取原始张量的形状信息
+#     batch_size, channels, height, width = array.shape
+#     # 将张量 x 变形成 (batch_size, channels, h*w) 的形状
+#     x_reshaped = array.view(batch_size,channels, -1)
+#
+#     # 对于每个 (batch_size, channels) 的二维矩阵，生成一个掩码矩阵;mask_rate为1的概率
+#     mask_2d = torch.zeros_like(x_reshaped).bernoulli_(1-mask_rate)
+#
+#     # 将掩码矩阵增加一个维度
+#     mask_3d = mask_2d.unsqueeze(-1)
+#
+#     # 将掩码矩阵重塑回原始张量的形状，并转换为浮点数张量
+#     mask = mask_3d.view(batch_size, channels, height, width).float()
+#
+#     return mask
 
 def get_patch_mask(array, mask_rate, patch_size):
     batch_size, channels, height, width = array.shape

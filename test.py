@@ -22,7 +22,7 @@ parser.add_argument('--dataset', type=str,default='Synapse', help='experiment_na
 parser.add_argument('--num_classes', type=int,default=4, help='output channel of network')
 parser.add_argument('--list_dir', type=str,default='./ACDC_data/labels/test', help='list dir')
 parser.add_argument('--output_dir', type=str, default='./output', help='output dir')
-parser.add_argument('--weight', type=str, default='output/val_best.pth', help='weight')
+parser.add_argument('--weight', type=str, default='output/weights/weights_mask15_patch4_epoch600_lr0.03/epoch_499.pth', help='weight')
 parser.add_argument('--max_iterations', type=int,default=30000, help='maximum epoch number to train')
 parser.add_argument('--max_epochs', type=int, default=300, help='maximum epoch number to train')
 parser.add_argument('--batch_size', type=int, default=24,help='batch_size per gpu')

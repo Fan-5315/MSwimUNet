@@ -11,9 +11,8 @@ from os.path import join as pjoin
 import torch
 import torch.nn as nn
 import numpy as np
-from utils import get_mask,get_patch_mask
+from utils import get_patch_mask
 from torch.nn import CrossEntropyLoss, Dropout, Softmax, Linear, Conv2d, LayerNorm
-from torch.nn.modules.utils import _pair
 from scipy import ndimage
 from .swin_transformer_unet_skip_expand_decoder_sys import SwinTransformerSys
 
