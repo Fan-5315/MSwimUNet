@@ -31,7 +31,7 @@ class DiceLoss(nn.Module):
         loss = 1 - loss
         return loss
 
-    def forward(self, inputs, target, weight=[0.7,1,1,1], softmax=False):
+    def forward(self, inputs, target, weight=None, softmax=False):
         if softmax:
             inputs = torch.softmax(inputs, dim=1)
         target = self._one_hot_encoder(target)
@@ -109,18 +109,19 @@ def one_hot_encoder(input,classes):
     return output_array
 
 def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_save_path=None, case=None, z_spacing=1):
-    image, label = image.squeeze(0).cpu().detach().numpy(), label.squeeze(0).cpu().detach().numpy()
+    image= image.squeeze(0).cpu().detach().numpy()
     case=case[0]
     if len(image.shape) == 3:
         input = torch.from_numpy(image).unsqueeze(0).float().cuda()
         net.eval()
         with torch.no_grad():
             outputs,outputs_mask,x_mask= net(input)
+            "miou计算"
+            miou = MIoU()
+            mIoU_num = miou.compute_mIoU(outputs, label, classes)
             x_mask = x_mask.squeeze(0).cpu().detach().numpy()
             out = torch.argmax(torch.softmax(outputs, dim=1), dim=1).squeeze(0)
             out1 = torch.argmax(torch.softmax(outputs_mask, dim=1), dim=1).squeeze(0)
-            # out = torch.softmax(outputs, dim=1)
-            # prediction = torch.argmax(out,dim=1).squeeze(0).cpu().detach().numpy()
             out_cal = out.cpu().detach().numpy()
             out1_cal = out1.cpu().detach().numpy()
             prediction = out_cal
@@ -133,11 +134,8 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
             out = torch.argmax(torch.softmax(net(input), dim=1), dim=1).squeeze(0)
             prediction = out.cpu().detach().numpy()
     metric_list = []
-    label_hot=one_hot_encoder(label,classes)
-    # for i in range(0, classes):
-    #     dice = dice_calculate(out_cal[i,:], label_hot[i,:])
-    #     metric_list.append(dice)
-    for i in range(0, classes):
+    label = label.squeeze(0).cpu().detach().numpy()
+    for i in range(1, classes):
         metric_list.append(calculate_metric_percase(prediction == i, label == i))
 
 
@@ -159,7 +157,7 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
         cv2.imwrite(prediction_path,prediction*50)
         cv2.imwrite(label_path,label*50)
         cv2.imwrite(prediction1_path, prediction1 * 50)
-    return metric_list
+    return metric_list,mIoU_num
 
 def cal_val(image, label, net, classes):
     image, label = image.squeeze(0).cpu().detach().numpy(), label.squeeze(0).cpu().detach().numpy()
@@ -168,8 +166,6 @@ def cal_val(image, label, net, classes):
     with torch.no_grad():
         outputs = net(input)[0]
         out = torch.argmax(torch.softmax(outputs, dim=1), dim=1).squeeze(0)
-        # out = torch.softmax(outputs, dim=1)
-        # prediction = torch.argmax(out,dim=1).squeeze(0).cpu().detach().numpy()
         out_cal = out.cpu().detach().numpy()
     prediction = out_cal
     metric_list = []
@@ -179,24 +175,6 @@ def cal_val(image, label, net, classes):
 
     return metric_list
 
-# def get_mask(array,mask_rate):
-#
-#     # 获取原始张量的形状信息
-#     batch_size, channels, height, width = array.shape
-#     # 将张量 x 变形成 (batch_size, channels, h*w) 的形状
-#     x_reshaped = array.view(batch_size,channels, -1)
-#
-#     # 对于每个 (batch_size, channels) 的二维矩阵，生成一个掩码矩阵;mask_rate为1的概率
-#     mask_2d = torch.zeros_like(x_reshaped).bernoulli_(1-mask_rate)
-#
-#     # 将掩码矩阵增加一个维度
-#     mask_3d = mask_2d.unsqueeze(-1)
-#
-#     # 将掩码矩阵重塑回原始张量的形状，并转换为浮点数张量
-#     mask = mask_3d.view(batch_size, channels, height, width).float()
-#
-#     return mask
-
 def get_patch_mask(array, mask_rate, patch_size):
     batch_size, channels, height, width = array.shape
 
@@ -204,13 +182,15 @@ def get_patch_mask(array, mask_rate, patch_size):
     n_patches_h = height // patch_size
     n_patches_w = width // patch_size
 
-    # 生成一个 (batch_size, channels, n_patches_h, n_patches_w) 的掩码张量，每个元素的值为0或1
-    mask_2d = torch.zeros(batch_size,channels,n_patches_h,n_patches_w).bernoulli_(1 - mask_rate)
+    # 生成一个 (batch_size, channels, n_patches_h, n_patches_w) 的一维掩码张量，每个元素的值为0或1
+    mask_2d = torch.zeros(batch_size,1,n_patches_h,n_patches_w).bernoulli_(1 - mask_rate)
 
     # 将掩码张量的尺寸缩小到 (num, num)，然后复制到每个图像的相应位置
-    mask_patches = torch.nn.functional.interpolate(mask_2d, scale_factor=patch_size, mode='nearest')
+    mask_2d_patches = torch.nn.functional.interpolate(mask_2d, scale_factor=patch_size, mode='nearest')
 
-    # 返回掩码张量
+    # 输出三维掩码张量
+    mask_patches = torch.cat([mask_2d_patches,mask_2d_patches,mask_2d_patches], dim=1)
+
     return mask_patches.float().to("cuda")
 
 

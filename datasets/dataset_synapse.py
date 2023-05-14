@@ -38,14 +38,16 @@ class RandomGenerator(object):
             image, label = random_rotate(image, label)
         x, y,_ = image.shape
         if x != self.output_size[0] or y != self.output_size[1]:
-            image = zoom(image, (self.output_size[0] / x, self.output_size[1] / y,1), order=3)  #三次样条插值
-            label = zoom(label, (self.output_size[0] / x, self.output_size[1] / y), order=0)   #最邻近插值：不改变像素值大小
+            #image = np.transpose(image, (2, 0, 1))  # 调整维度顺序
+            image = Image.fromarray(image.astype(np.uint8)).resize((self.output_size[1], self.output_size[0]), Image.BICUBIC) #双三次插值
+            image = np.array(image, dtype=np.float32)
+            #image = np.transpose(image, (1, 2, 0))  # 调整维度顺序
+            label = Image.fromarray(label.astype(np.uint8)).resize((self.output_size[1], self.output_size[0]), Image.NEAREST) #最邻近插值：不改变像素值大小
+            label = np.array(label, dtype=np.float32)
 
-        image = torch.from_numpy(image.astype(np.float32))
-
-
+        image = torch.from_numpy(image)
         image=image.permute(2,0,1)
-        label = torch.from_numpy(label.astype(np.float32))
+        label = torch.from_numpy(label)
         sample = {'image': image, 'label': label.long()}
         return sample
 
@@ -53,8 +55,10 @@ class RandomGenerator(object):
 class AcdcDataset(Dataset):
     def __init__(self, images_dir, masks_dir, transform=None):
         self.transform = transform  # using transform in torch!
-        self.ids=os.listdir(images_dir)
-        self.ids2=os.listdir(masks_dir)
+        self.ids=sorted(os.listdir(images_dir))
+        print(self.ids)
+        self.ids2=sorted(os.listdir(masks_dir))
+        print(self.ids2)
         self.images_fps = [os.path.join(images_dir, image_id) for image_id in self.ids]
         self.masks_fps = [os.path.join(masks_dir, image_id) for image_id in self.ids2]
 

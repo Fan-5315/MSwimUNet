@@ -15,14 +15,13 @@ from networks.vision_transformer import SwinUnet as ViT_seg
 from config import get_config
 from torchvision import transforms
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--volume_path', type=str,default='./ACDC_data/images/test', help='root dir for validation volume data')  # for acdc volume_path=root_dir
 parser.add_argument('--dataset', type=str,default='Synapse', help='experiment_name')
 parser.add_argument('--num_classes', type=int,default=4, help='output channel of network')
 parser.add_argument('--list_dir', type=str,default='./ACDC_data/labels/test', help='list dir')
 parser.add_argument('--output_dir', type=str, default='./output', help='output dir')
-parser.add_argument('--weight', type=str, default='output/weights/weights_mask15_patch4_epoch600_lr0.03/epoch_499.pth', help='weight')
+parser.add_argument('--weight', type=str, default='output/weights_a100/mask55_patch4.pth', help='weight')
 parser.add_argument('--max_iterations', type=int,default=30000, help='maximum epoch number to train')
 parser.add_argument('--max_epochs', type=int, default=300, help='maximum epoch number to train')
 parser.add_argument('--batch_size', type=int, default=24,help='batch_size per gpu')
@@ -54,20 +53,20 @@ def inference(args, model, test_save_path=None):
     logging.info("{} test iterations per epoch".format(len(testloader)))
     model.eval()
     metric_list = 0.0
+    miou = 0.0
     for i_batch, sampled_batch in tqdm(enumerate(testloader)):
         image, label,case_name= sampled_batch[0]["image"], sampled_batch[0]["label"],sampled_batch[1]['label_id']
-        metric_i = test_single_volume(image, label, model, classes=args.num_classes, patch_size=[args.img_size, args.img_size],test_save_path=test_save_path, case=case_name, z_spacing=args.z_spacing)
+        metric_i,miou_item = test_single_volume(image, label, model, classes=args.num_classes, patch_size=[args.img_size, args.img_size],test_save_path=test_save_path, case=case_name, z_spacing=args.z_spacing)
         metric_list += np.array(metric_i)
-        logging.info('idx %d case %s mean_dice %f mean_hd95 %f' % (i_batch, case_name, np.mean(metric_i, axis=0)[0], np.mean(metric_i, axis=0)[1]))
-        #logging.info('idx %d case %s mean_dice %f ' % (i_batch, case_name, np.mean(metric_i)))
+        miou += miou_item
+        logging.info('idx %d case %s mean_dice %f mean_hd95 %f miou %f ' % (i_batch, case_name, np.mean(metric_i, axis=0)[0], np.mean(metric_i, axis=0)[1],miou_item))
     metric_list = metric_list / len(db_test)
-    for i in range(1, args.num_classes):
+    miou = miou / len(db_test)
+    for i in range(0, args.num_classes-1):
         logging.info('Mean class %d mean_dice %f mean_hd95 %f' % (i, metric_list[i][0], metric_list[i][1]))
-        #logging.info('Mean class %d mean_dice %f ' % (i, metric_list[i]))
     performance = np.mean(metric_list,axis=0)[0]
     mean_hd95 = np.mean(metric_list, axis=0)[1]
-    logging.info('Testing performance in best val model: mean_dice : %f mean_hd95 : %f' % (performance, mean_hd95))
-    #logging.info('Testing performance in best val model: mean_dice : %f ' % (performance))
+    logging.info('Testing performance in best val model: mean_dice : %f mean_hd95 : %f miou : %f' % (performance, mean_hd95,miou))
     return "Testing Finished!"
 
 

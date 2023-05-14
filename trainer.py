@@ -29,7 +29,7 @@ def trainer_synapse(args,model, snapshot_path,worker_init_fn):
     # max_iterations = args.max_iterations
     train_data = AcdcDataset(images_dir=os.path.join(args.root_path,'train'), masks_dir=os.path.join(args.list_dir,'train'),
                                    transform=transforms.Compose([RandomGenerator(output_size=[args.img_size, args.img_size])]))
-    val_data = AcdcDataset(images_dir=os.path.join(args.root_path,'test'), masks_dir=os.path.join(args.list_dir,'test'),
+    val_data = AcdcDataset(images_dir=os.path.join(args.root_path,'val'), masks_dir=os.path.join(args.list_dir,'val'),
                                  transform=transforms.Compose([RandomGenerator(output_size=[args.img_size, args.img_size])]))
     print("The length of train set is: {}".format(len(train_data)))
     print("The length of val set is: {}".format(len(val_data)))
@@ -99,7 +99,7 @@ def trainer_synapse(args,model, snapshot_path,worker_init_fn):
             writer.add_scalar('train/loss_mask', loss_mask, iter_num)
 
             "迭代write可视化结果"
-            if iter_num % 24==0:
+            if iter_num % 80==0:
                 "图像分割"
                 image = image_batch[1, 0:1, :, :]
                 image = (image - image.min()) / (image.max() - image.min())
@@ -143,7 +143,7 @@ def trainer_synapse(args,model, snapshot_path,worker_init_fn):
             torch.save(model.state_dict(), save_mode_path)
             logging.info("save model to {}".format(save_mode_path))
 
-        if epoch_num>200:
+        if epoch_num>0:
             if val_use:
                 with torch.no_grad():
                     model.eval()
@@ -165,7 +165,7 @@ def trainer_synapse(args,model, snapshot_path,worker_init_fn):
                         "miou计算"
                         mIoU_num=miou.compute_mIoU(outputs_seg,label_batch,num_classes)
                         "total loss"
-                        loss = 0.5 * (0.4 * loss_ce + 0.6 * loss_dice) + 0.5 * loss_mask
+                        loss = 0.8 * (0.4 * loss_ce + 0.6 * loss_dice) + 0.2 * loss_mask
                         "Dice系数"
                         metric_i = cal_val(image_batch, label_batch, model, classes=args.num_classes)
                         metric_list += np.array(metric_i)
@@ -177,8 +177,7 @@ def trainer_synapse(args,model, snapshot_path,worker_init_fn):
                         writer.add_scalar('val/total_mean_loss', loss, iter_num1)
                         writer.add_scalar('val/MIoU', mIoU_num, iter_num1)
 
-
-                        if iter_num1 % 8 == 0:
+                        if iter_num1 % 200 == 0:
                             "图像分割"
                             image = image_batch[0, 0:1, :, :]
                             image = (image - image.min()) / (image.max() - image.min())
@@ -202,6 +201,7 @@ def trainer_synapse(args,model, snapshot_path,worker_init_fn):
                 iterator1.close()
                 epoch_dice = running_performance / len(val_loader)
                 writer.add_scalar('val/Dice', epoch_dice, epoch_num)
+                logging.info('Dice: %f' % epoch_dice)
 
                 if epoch_dice > best_performance:
                     best_performance = epoch_dice

@@ -14,7 +14,7 @@ parser.add_argument('--root_path', type=str,default='./ACDC_data/images', help='
 parser.add_argument('--dataset', type=str,default='Synapse', help='experiment_name')
 parser.add_argument('--list_dir', type=str,default='./ACDC_data/labels', help='list dir')   #训练集样本标签路径
 parser.add_argument('--num_classes', type=int,default=4, help='output channel of network')
-parser.add_argument('--mask_rate', type=float,default=0.15, help='')
+parser.add_argument('--mask_rate', type=float,default=0.25, help='')
 parser.add_argument('--mask_size', type=float,default=4, help='')
 parser.add_argument('--val_use', default=True, help='whether use val data')
 parser.add_argument('--output_dir', type=str, default='./output',help='output dir')
@@ -40,13 +40,13 @@ parser.add_argument('--eval', action='store_true', help='Perform evaluation only
 parser.add_argument('--throughput', action='store_true', help='Test throughput only')
 
 args = parser.parse_args()
-config = get_config(args)
-
+print('----------------------------wait process-------------------------------')
 
 def worker_init_fn(worker_id):
     random.seed(args.seed + worker_id)
 
 if __name__ == "__main__":
+    config = get_config(args)
     if not args.deterministic:
         cudnn.benchmark = True
         cudnn.deterministic = False
@@ -80,4 +80,6 @@ if __name__ == "__main__":
     net.load_from(config)
 
     trainer = {'Synapse': trainer_synapse}
+
+
     trainer[dataset_name](args,net, args.output_dir,worker_init_fn)
