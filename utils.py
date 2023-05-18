@@ -7,6 +7,7 @@ import SimpleITK as sitk
 import os
 from PIL import Image
 import cv2
+import matplotlib.colors as mcolors
 
 class DiceLoss(nn.Module):
     def __init__(self, n_classes):
@@ -137,7 +138,9 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
     label = label.squeeze(0).cpu().detach().numpy()
     for i in range(1, classes):
         metric_list.append(calculate_metric_percase(prediction == i, label == i))
-
+    "贴图"
+    overImg = overlay_labels(image, prediction)
+    overImg1 = overlay_labels(x_mask, prediction1)
 
     if test_save_path is not None:
         image = np.transpose(image.astype(np.uint8), (1, 2, 0))
@@ -147,12 +150,16 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
         label = label.astype(np.uint8)
 
         image_path = test_save_path + '/' + case[:-4] + '_' + 'image' + '.png'
+        overImg_path = test_save_path + '/' + case[:-4] + '_' + 'Task1Img' + '.png'
+        overImg1_path = test_save_path + '/' + case[:-4] + '_' + 'Task2Img' + '.png'
         x_mask_path = test_save_path + '/' + case[:-4] + '_' + 'mask_image' + '.png'
         prediction_path = test_save_path + '/' + case[:-4] + '_' + 'pred' + '.png'
         label_path = test_save_path + '/' + case[:-4] + '_' + 'label' + '.png'
         prediction1_path = test_save_path + '/' + case[:-4] + '_' + 'mask_pred' + '.png'
 
         cv2.imwrite(image_path,image)
+        cv2.imwrite(overImg_path, overImg)
+        cv2.imwrite(overImg1_path, overImg1)
         cv2.imwrite(x_mask_path, x_mask)
         cv2.imwrite(prediction_path,prediction*50)
         cv2.imwrite(label_path,label*50)
@@ -204,3 +211,26 @@ def tran_label(label_batch):
 
     return label_batch_mapped
 
+
+def overlay_labels(original_image, label_image):
+    original_image = np.transpose(original_image.astype(np.uint8), (1, 2, 0))
+    # 定义颜色映射（标签值与颜色的对应关系）bgra色彩
+    label_colors = {
+        0: (0, 0, 0, 0),  # 黑色：背景
+        1: (150, 255, 255, 255),  # 黄色：Rv（右心室腔）
+        2: (203, 230, 0, 128),  # 青色：Myo（心肌）
+        3: (213, 192, 255, 128)  # 粉色：Lv（左心室腔）
+    }
+
+    # 创建带有透明度通道的RGBA图像
+    rgba_image = np.zeros((label_image.shape[0], label_image.shape[1], 4), dtype=np.uint8)
+    for label_value, color in label_colors.items():
+        mask = label_image == label_value
+        rgba_image[mask] = color
+
+    # 将标签图像贴图到原始图像上
+    result_image = original_image.copy()
+    result_image[rgba_image[..., 3] > 0] = rgba_image[rgba_image[..., 3] > 0, :3]
+
+    # 返回贴图后的图像
+    return result_image

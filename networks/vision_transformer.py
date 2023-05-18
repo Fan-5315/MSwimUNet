@@ -45,7 +45,7 @@ class FinalPatchExpand_X4(nn.Module):
         return x
 
 class SwinUnet(nn.Module):
-    def __init__(self, config, img_size=224, num_classes=21843, mask_rate=0.25,mask_size=4,zero_head=False, vis=False):
+    def __init__(self, config, img_size=224, num_classes=21843, mask_rate=0.45,mask_size=8,zero_head=False, vis=False):
         super(SwinUnet, self).__init__()
         self.num_classes = num_classes
         self.zero_head = zero_head
@@ -75,9 +75,9 @@ class SwinUnet(nn.Module):
             "分割任务层"
             self.output = nn.Conv2d(in_channels=self.swin_unet.embed_dim,out_channels=self.num_classes,kernel_size=1,bias=False)
 
-            "重构任务层"
-            self.output1 = nn.Conv2d(in_channels=self.swin_unet.embed_dim,out_channels=self.swin_unet.in_channel,kernel_size=1,bias=False)
-            #self.output1 = nn.Linear(in_features=self.swin_unet.embed_dim*img_size*img_size,out_features=self.swin_unet.in_channel*self.swin_unet.patch_size*self.swin_unet.patch_size)
+            # "重构任务层"
+            # self.output1 = nn.Conv2d(in_channels=self.swin_unet.embed_dim,out_channels=self.swin_unet.in_channel,kernel_size=1,bias=False)
+            # #self.output1 = nn.Linear(in_features=self.swin_unet.embed_dim*img_size*img_size,out_features=self.swin_unet.in_channel*self.swin_unet.patch_size*self.swin_unet.patch_size)
 
     def up_x4_seg(self, x):
         H, W = self.swin_unet.patches_resolution
@@ -89,21 +89,6 @@ class SwinUnet(nn.Module):
             x = x.view(B, 4 * H, 4 * W, -1)
             x = x.permute(0, 3, 1, 2)  # B,C,H,W
             x = self.output(x)
-        return x
-
-    def up_x4_mask(self, x):
-        H, W = self.swin_unet.patches_resolution
-        B, L, C = x.shape
-        assert L == H * W, "input features has wrong size"
-
-        if self.swin_unet.final_upsample == "expand_first":
-            x = self.up(x)
-            x = x.view(B, 4 * H, 4 * W, -1)
-            x = x.permute(0, 3, 1, 2)  # 调整张量为B,C,H,W
-            #x = self.flatten(x)  # B,embed_dim*H*W
-            x = self.output1(x)
-
-            #x = x.view(B, self.in_channel, H, W)
         return x
 
     def forward(self, x):
